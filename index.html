@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#030308">
+<title>Quantum Mirror - المرآة الكمومية المزدوجة | AymanStack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#030308;--cy:#00f3ff;--vi:#a855ff;--em:#10f0a0;--glass:rgba(255,255,255,.06);--line:rgba(0,243,255,.28)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:#e8fbff;font-family:'Cairo',system-ui,sans-serif;overflow:hidden}
+body{background:radial-gradient(ellipse at 20% 10%,#1a0a3a 0,transparent 55%),radial-gradient(ellipse at 85% 90%,#00323a 0,transparent 50%),var(--bg)}
+#stage{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.hid{position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;left:0;top:0}
+#lvw{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(112px + env(safe-area-inset-bottom,0px));width:96px;height:96px;border-radius:50%;overflow:hidden;border:2px solid var(--cy);box-shadow:0 0 18px var(--cy),0 0 40px rgba(168,85,255,.5);z-index:5;display:none}
+#lv{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.glass{background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;box-shadow:0 0 24px rgba(0,243,255,.12)}
+#hud{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:10px;left:10px;display:none;justify-content:space-between;align-items:center;gap:8px;padding:8px 14px;z-index:5;font-weight:700;font-size:14px}
+#hud b{color:var(--cy);letter-spacing:3px;font-size:18px;text-shadow:0 0 10px var(--cy)}
+#dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff9d00;box-shadow:0 0 8px #ff9d00;margin-inline-end:6px}
+#dot.on{background:var(--em);box-shadow:0 0 10px var(--em)}
+#meter{width:60px;height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+#meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),var(--vi))}
+#bar{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));right:10px;left:10px;display:none;gap:8px;padding:10px;z-index:5}
+button{font-family:inherit;cursor:pointer;border:1px solid var(--cy);color:var(--cy);background:rgba(0,243,255,.08);border-radius:14px;padding:12px 10px;font-size:14px;font-weight:700;transition:.2s;touch-action:manipulation}
+button:hover,button:focus-visible{background:rgba(0,243,255,.2);box-shadow:0 0 16px var(--cy);outline:none}
+button:active{transform:scale(.96)}
+#bar button{flex:1}
+#bar .pl{border-color:var(--vi);color:#e3c8ff;background:rgba(168,85,255,.14)}
+#setup{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(3,3,8,.88);overflow:auto}
+#card{width:min(440px,100%);padding:26px 22px;text-align:center}
+h1{font-size:30px;font-weight:900;color:var(--cy);text-shadow:0 0 18px var(--cy),0 0 42px var(--vi);line-height:1.3}
+.sub{color:#9fb8c4;font-size:14px;margin:6px 0 20px;line-height:1.7}
+.brand{font-size:12px;color:var(--em);margin-top:16px}
+.role{display:block;width:100%;margin-top:10px;padding:16px;font-size:16px}
+.role small{display:block;font-weight:400;color:#9fb8c4;margin-top:3px;font-size:12px}
+#code{font-size:56px;font-weight:900;letter-spacing:14px;color:var(--em);text-shadow:0 0 22px var(--em);direction:ltr;margin:10px 0}
+input{width:100%;padding:13px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.45);color:#fff;font-family:inherit;font-size:18px;text-align:center;margin-bottom:10px}
+input:focus{outline:2px solid var(--cy)}
+#codeIn{font-size:34px;letter-spacing:12px;direction:ltr}
+.sec{display:none}
+#err{color:#ff6b8a;font-size:13px;min-height:20px;margin-top:10px}
+#msg{position:fixed;left:6%;right:6%;top:36%;z-index:8;text-align:center;font-size:clamp(22px,6vw,40px);font-weight:900;color:var(--cy);text-shadow:0 0 8px var(--cy),0 0 26px var(--cy),0 0 60px var(--vi);opacity:0;pointer-events:none;transition:opacity .5s;line-height:1.6}
+#msg.show{opacity:1;animation:fl 3.2s ease-in-out infinite}
+#msg .n{color:var(--vi);opacity:.85}
+#tag{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));right:0;left:0;text-align:center;z-index:8;color:var(--em);font-weight:700;text-shadow:0 0 10px var(--em);opacity:0;transition:opacity .4s;font-size:14px}
+@keyframes fl{0%,100%{transform:translateY(0) skewX(0)}25%{transform:translateY(-12px) skewX(-1.5deg)}50%{transform:translateY(4px) skewX(1deg)}75%{transform:translateY(-8px)}}
+#flash{position:fixed;inset:0;background:radial-gradient(circle,#fff,var(--cy) 55%,transparent);opacity:0;pointer-events:none;z-index:15}
+#flash.go{animation:fh .7s ease-out}
+@keyframes fh{0%{opacity:.95}100%{opacity:0}}
+body.shake{animation:sh .5s}
+@keyframes sh{0%,100%{transform:none}20%{transform:translate(-8px,4px)}40%{transform:translate(8px,-4px)}60%{transform:translate(-6px,-3px)}80%{transform:translate(6px,3px)}}
+#edit{position:fixed;inset:0;z-index:18;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(3,3,8,.8)}
+#edit .glass{width:min(420px,100%);padding:22px;text-align:center}
+#edit .row{display:flex;gap:8px}
+#edit .row button{flex:1}
+@media (prefers-reduced-motion:reduce){#msg.show,body.shake{animation:none}}
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+<video id="rv" class="hid" autoplay playsinline muted></video>
+<div id="lvw"><video id="lv" autoplay playsinline muted></video></div>
+
+<div id="hud" class="glass">
+  <span><i id="dot"></i><span id="st">غير متصل</span></span>
+  <b id="roomTag">----</b>
+  <span title="مستوى الحركة المرصودة"><div id="meter"><i id="mi"></i></div></span>
+</div>
+<div id="tag"></div>
+<div id="msg" aria-live="polite"></div>
+<div id="flash"></div>
+
+<div id="bar" class="glass">
+  <button id="fx">الفلتر: نيون</button>
+  <button id="pulse" class="pl">⚡ نبضة كمومية</button>
+  <button id="chg">✎ الرسالة السرية</button>
+</div>
+
+<div id="edit">
+  <div class="glass">
+    <h1 style="font-size:20px">الرسالة السرية</h1>
+    <p class="sub">يراها صديقك عندما يلوّح بيده أمام كاميرته أو يغطيها لثانية.</p>
+    <input id="secIn" maxlength="80" placeholder="اكتب رسالتك السرية">
+    <div class="row"><button id="secSave">حفظ</button><button id="secCancel" style="border-color:#667;color:#9fb8c4;background:none">إلغاء</button></div>
+  </div>
+</div>
+
+<div id="setup">
+  <div id="card" class="glass">
+    <h1>Quantum Mirror<br><span style="font-size:19px">المرآة الكمومية المزدوجة</span></h1>
+    <p class="sub">افتح نفقاً كمومياً بين هاتفين عبر اتصال مباشر P2P بلا سيرفر.</p>
+
+    <div id="s1" class="sec" style="display:block">
+      <button class="role" id="rA">الجهاز الأول (المرسل - يسار)<small>ينشئ غرفة بكود من 4 أرقام</small></button>
+      <button class="role" id="rB" style="border-color:var(--vi);color:#e3c8ff">الجهاز الثاني (المستقبل - يمين)<small>يدخل الكود ويتصل بالنفق</small></button>
+    </div>
+
+    <div id="s2" class="sec">
+      <p class="sub" style="margin:0">أعطِ هذا الكود لصديقك</p>
+      <div id="code">----</div>
+      <p class="sub">بانتظار اتصال الجهاز الثاني…</p>
+    </div>
+
+    <div id="s3" class="sec">
+      <p class="sub" style="margin:0 0 10px">أدخل كود الغرفة</p>
+      <input id="codeIn" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+      <button class="role" id="go" style="margin-top:0">اتصال بالنفق</button>
+    </div>
+
+    <div id="err"></div>
+    <div class="brand">AymanStack · التقنية والأمن السيبراني</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const DEF="⚡ تم اعتراض الرسالة: مفتاح الأمان نشط";
+const MODES=["طبيعي","نيون","ماتريكس"];
+let peer=null,conn=null,local=null,hasRemote=false,mode=1,secMine=DEF,secPeer=DEF,room="",typeT=null,hideT=null,lastTrig=0;
+
+/* ---------- Helpers ---------- */
+function err(t){$("err").textContent=t}
+function status(t,on){$("st").textContent=t;$("dot").className=on?"on":""}
+function show(id){["s1","s2","s3"].forEach(s=>$(s).style.display=s===id?"block":"none")}
+function send(o){try{if(conn&&conn.open)conn.send(o)}catch(e){}}
+function tag(t){const e=$("tag");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,2600)}
+
+/* ---------- Camera ---------- */
+async function cam(){
+  if(local)return true;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){err("المتصفح لا يدعم الكاميرا. استخدم HTTPS.");return false}
+  try{
+    local=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480},frameRate:{ideal:24}},audio:false});
+    $("lv").srcObject=local;$("lv").play().catch(()=>{});
+    $("lvw").style.display="block";
+    return true;
+  }catch(e){err("تعذّر تشغيل الكاميرا. اسمح بالوصول إليها ثم أعد المحاولة.");return false}
+}
+function enter(){
+  $("setup").style.display="none";
+  $("hud").style.display="flex";$("bar").style.display="flex";
+  $("roomTag").textContent=room;
+}
+
+/* ---------- P2P ---------- */
+function bindConn(c){
+  conn=c;
+  c.on("open",()=>send({t:"s",v:secMine}));
+  c.on("data",d=>{
+    if(!d)return;
+    if(d.t==="s")secPeer=String(d.v).slice(0,80);
+    else if(d.t==="p")pulse(true);
+  });
+  c.on("close",()=>{status("انقطع النفق",false)});
+}
+function bindCall(c){
+  c.on("stream",s=>{
+    const v=$("rv");v.srcObject=s;v.play().catch(()=>{});
+    hasRemote=true;enter();status("النفق نشط",true);send({t:"s",v:secMine});
+  });
+  c.on("close",()=>{hasRemote=false;status("انقطع النفق",false)});
+  c.on("error",()=>status("خطأ في الاتصال",false));
+}
+function hostRoom(){
+  room=String(Math.floor(1000+Math.random()*9000));
+  const p=new Peer("qmirror-"+room);
+  peer=p;
+  p.on("open",()=>{$("code").textContent=room;show("s2");$("roomTag").textContent=room;status("بانتظار الصديق",false)});
+  p.on("call",c=>{c.answer(local);bindCall(c)});
+  p.on("connection",bindConn);
+  p.on("error",e=>{
+    if(e.type==="unavailable-id"){try{p.destroy()}catch(x){}hostRoom()}
+    else err("خطأ في الشبكة: "+e.type);
+  });
+}
+function joinRoom(code){
+  room=code;err("");
+  const p=new Peer();peer=p;
+  p.on("open",()=>{
+    const id="qmirror-"+code;
+    bindConn(p.connect(id,{reliable:true}));
+    bindCall(p.call(id,local));
+    status("جارٍ الاتصال…",false);
+  });
+  p.on("error",e=>{
+    if(e.type==="peer-unavailable")err("الغرفة غير موجودة. تأكد من الكود.");
+    else err("خطأ في الشبكة: "+e.type);
+  });
+}
+
+$("rA").onclick=async()=>{err("");if(await cam())hostRoom()};
+$("rB").onclick=async()=>{err("");if(await cam()){show("s3");$("codeIn").focus()}};
+$("go").onclick=()=>{
+  const c=$("codeIn").value.replace(/\D/g,"");
+  if(c.length!==4){err("الكود يتكوّن من 4 أرقام.");return}
+  joinRoom(c);
+};
+$("codeIn").addEventListener("keydown",e=>{if(e.key==="Enter")$("go").click()});
+
+/* ---------- Actions ---------- */
+function pulse(incoming){
+  const f=$("flash");f.classList.remove("go");void f.offsetWidth;f.classList.add("go");
+  document.body.classList.remove("shake");void document.body.offsetWidth;document.body.classList.add("shake");
+  if(navigator.vibrate)navigator.vibrate([220,80,220,80,400]);
+  if(!incoming){send({t:"p"});tag("تم إرسال النبضة الكمومية")}else tag("وصلتك نبضة كمومية!");
+}
+$("pulse").onclick=()=>pulse(false);
+$("fx").onclick=()=>{mode=(mode+1)%3;$("fx").textContent="الفلتر: "+MODES[mode]};
+$("chg").onclick=()=>{$("secIn").value=secMine;$("edit").style.display="flex";$("secIn").focus()};
+$("secCancel").onclick=()=>{$("edit").style.display="none"};
+$("secSave").onclick=()=>{
+  const v=$("secIn").value.trim();
+  secMine=v||DEF;send({t:"s",v:secMine});
+  $("edit").style.display="none";tag("تم حفظ الرسالة السرية");
+};
+
+/* ---------- Decryption text effect ---------- */
+const G="01#$%&▓░▒<>/\\|{}=+*";
+function decrypt(text,kind){
+  clearInterval(typeT);clearTimeout(hideT);
+  const el=$("msg");el.classList.add("show");
+  if(navigator.vibrate)navigator.vibrate(60);
+  tag("إيماءة مرصودة: "+kind+" · جارٍ فك التشفير");
+  let i=0;
+  typeT=setInterval(()=>{
+    el.textContent="";
+    el.appendChild(document.createTextNode(text.slice(0,i)));
+    if(i<text.length){
+      const n=document.createElement("span");n.className="n";
+      let r="";for(let k=i;k<text.length;k++){const ch=text[k];r+=ch===" "?" ":G[(Math.random()*G.length)|0]}
+      n.textContent=r;el.appendChild(n);
+    }
+    i++;
+    if(i>text.length+1){
+      clearInterval(typeT);
+      hideT=setTimeout(()=>el.classList.remove("show"),6500);
+    }
+  },55);
+}
+function trigger(kind){
+  const now=performance.now();
+  if(now-lastTrig<7000)return;
+  lastTrig=now;decrypt(secPeer,kind);
+}
+
+/* ---------- WebGL renderer ---------- */
+const cv=$("stage");
+const gl=cv.getContext("webgl",{antialias:false,alpha:false,powerPreference:"low-power"});
+let U={};
+if(gl){
+  const vs="attribute vec2 p;varying vec2 u;uniform float fl;void main(){u=vec2((p.x*.5+.5),1.-(p.y*.5+.5));if(fl>.5)u.x=1.-u.x;gl_Position=vec4(p,0.,1.);}";
+  const fs=`precision mediump float;varying vec2 u;uniform sampler2D t;uniform vec2 px;uniform float tm;uniform int md;
+  float lm(vec2 c){return dot(texture2D(t,c).rgb,vec3(.299,.587,.114));}
+  void main(){
+    vec2 d=u-.5;float r=length(d);
+    vec2 w=u+d*sin(r*14.-tm*2.2)*.012*smoothstep(.1,.7,r);
+    float a=lm(w+vec2(-px.x,-px.y)),b=lm(w+vec2(0.,-px.y)),c=lm(w+vec2(px.x,-px.y));
+    float e=lm(w+vec2(-px.x,0.)),g=lm(w+vec2(px.x,0.));
+    float h=lm(w+vec2(-px.x,px.y)),i=lm(w+vec2(0.,px.y)),j=lm(w+vec2(px.x,px.y));
+    float gx=(c+2.*g+j)-(a+2.*e+h),gy=(h+2.*i+j)-(a+2.*b+c);
+    float ed=clamp(length(vec2(gx,gy))*2.2,0.,1.);
+    vec3 col=texture2D(t,w).rgb;
+    float L=lm(w);
+    vec3 o;
+    if(md==1){
+      vec3 neon=mix(vec3(0.,.95,1.),vec3(.66,.33,1.),.5+.5*sin(u.y*6.+tm));
+      o=neon*ed*1.6+vec3(0.,.04,.08)+col*.12;
+    }else if(md==2){
+      float row=step(.5,fract(u.y*90.+tm*3.*step(.5,fract(u.x*40.))));
+      o=vec3(0.,1.,.35)*(L*.9+ed*.8)*(.6+.4*row);
+    }else{
+      o=mix(col,col*vec3(.55,.9,1.15),.5);
+    }
+    o*=.88+.12*sin(u.y*700.);
+    o+=vec3(0.,.55,.7)*smoothstep(.55,.95,r)*(.5+.5*sin(tm*3.))*.5;
+    o*=1.-smoothstep(.6,1.05,r)*.6;
+    gl_FragColor=vec4(o,1.);
+  }`;
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o};
+  const pr=gl.createProgram();
+  gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(pr);gl.useProgram(pr);
+  const bf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,bf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  const lo=gl.getAttribLocation(pr,"p");gl.enableVertexAttribArray(lo);gl.vertexAttribPointer(lo,2,gl.FLOAT,false,0,0);
+  const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  ["fl","px","tm","md"].forEach(n=>U[n]=gl.getUniformLocation(pr,n));
+}
+function frame(t){
+  requestAnimationFrame(frame);
+  if(!gl)return;
+  const v=hasRemote?$("rv"):$("lv");
+  if(v.readyState<2||!v.videoWidth)return;
+  if(cv.width!==v.videoWidth||cv.height!==v.videoHeight){
+    cv.width=v.videoWidth;cv.height=v.videoHeight;gl.viewport(0,0,cv.width,cv.height);
+  }
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,v);
+  gl.uniform1f(U.fl,hasRemote?0:1);
+  gl.uniform2f(U.px,1/cv.width,1/cv.height);
+  gl.uniform1f(U.tm,t/1000);
+  gl.uniform1i(U.md,mode);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+requestAnimationFrame(frame);
+
+/* ---------- Motion / gesture detection on the received video ---------- */
+const W=32,H=24;
+const mc=document.createElement("canvas");mc.width=W;mc.height=H;
+const mx=mc.getContext("2d",{willReadFrequently:true});
+let prev=null,lastCx=null,lastSign=0,rev=[],dark=0,darkDone=false;
+setInterval(()=>{
+  const v=$("rv");
+  if(!hasRemote||v.readyState<2)return;
+  mx.drawImage(v,0,0,W,H);
+  const d=mx.getImageData(0,0,W,H).data,cur=new Uint8Array(W*H);
+  let sum=0;
+  for(let i=0;i<W*H;i++){const l=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114);cur[i]=l;sum+=l}
+  const mean=sum/(W*H);
+  let cnt=0,sx=0;
+  if(prev){
+    for(let i=0;i<W*H;i++){if(Math.abs(cur[i]-prev[i])>28){cnt++;sx+=i%W}}
+  }
+  prev=cur;
+  const frac=cnt/(W*H);
+  $("mi").style.width=Math.min(100,frac*500)+"%";
+  const now=performance.now();
+  /* Wave: horizontal centroid reversing direction several times */
+  if(frac>0.035&&frac<0.6){
+    const cx=sx/cnt;
+    if(lastCx!==null){
+      const dx=cx-lastCx;
+      if(Math.abs(dx)>1.2){
+        const s=dx>0?1:-1;
+        if(lastSign!==0&&s!==lastSign)rev.push(now);
+        lastSign=s;
+      }
+    }
+    lastCx=cx;
+  }else{lastCx=null;lastSign=0}
+  rev=rev.filter(x=>now-x<2000);
+  if(rev.length>=3){rev=[];trigger("تلويح اليد")}
+  /* Cover camera: very dark for ~0.6s */
+  if(mean<22){dark++;if(dark>=6&&!darkDone){darkDone=true;trigger("تغطية الكاميرا")}}
+  else{dark=0;darkDone=false}
+},100);
+
+status("غير متصل",false);
+})();
+</script>
+</body>
+</html>
