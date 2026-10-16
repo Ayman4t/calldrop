@@ -43,6 +43,10 @@ input:focus{outline:2px solid var(--cy)}
 #codeIn{font-size:34px;letter-spacing:12px;direction:ltr}
 .sec{display:none}
 #err{color:#ff6b8a;font-size:13px;min-height:20px;margin-top:10px}
+#strip{position:fixed;top:calc(62px + env(safe-area-inset-top,0px));right:10px;display:flex;flex-direction:column;gap:10px;z-index:6}
+.th{width:64px;text-align:center;font-size:10px;cursor:pointer;color:#cfe}
+.th video{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--vi);box-shadow:0 0 12px var(--vi);display:block;margin-bottom:2px}
+.th.f video{border-color:var(--cy);box-shadow:0 0 16px var(--cy)}
 #msg{position:fixed;left:6%;right:6%;top:36%;z-index:8;text-align:center;font-size:clamp(22px,6vw,40px);font-weight:900;color:var(--cy);text-shadow:0 0 8px var(--cy),0 0 26px var(--cy),0 0 60px var(--vi);opacity:0;pointer-events:none;transition:opacity .5s;line-height:1.6}
 #msg.show{opacity:1;animation:fl 3.2s ease-in-out infinite}
 #msg .n{color:var(--vi);opacity:.85}
@@ -63,7 +67,6 @@ body.shake{animation:sh .5s}
 <body>
 
 <canvas id="stage"></canvas>
-<video id="rv" class="hid" autoplay playsinline muted></video>
 <div id="lvw"><video id="lv" autoplay playsinline muted></video></div>
 
 <div id="hud" class="glass">
@@ -71,6 +74,7 @@ body.shake{animation:sh .5s}
   <b id="roomTag">----</b>
   <span title="مستوى الحركة المرصودة"><div id="meter"><i id="mi"></i></div></span>
 </div>
+<div id="strip"></div>
 <div id="tag"></div>
 <div id="msg" aria-live="polite"></div>
 <div id="flash"></div>
@@ -93,7 +97,7 @@ body.shake{animation:sh .5s}
 <div id="setup">
   <div id="card" class="glass">
     <h1>Quantum Mirror<br><span style="font-size:19px">المرآة الكمومية المزدوجة</span></h1>
-    <p class="sub">افتح نفقاً كمومياً بين هاتفين عبر اتصال مباشر P2P بلا سيرفر.</p>
+    <p class="sub">افتح نفقاً كمومياً بين 2 إلى 5 أجهزة عبر اتصال مباشر P2P بلا سيرفر.</p>
 
     <div id="s1" class="sec" style="display:block">
       <button class="role" id="rA">الجهاز الأول (المرسل - يسار)<small>ينشئ غرفة بكود من 4 أرقام</small></button>
@@ -103,7 +107,7 @@ body.shake{animation:sh .5s}
     <div id="s2" class="sec">
       <p class="sub" style="margin:0">أعطِ هذا الكود لصديقك</p>
       <div id="code">----</div>
-      <p class="sub">بانتظار اتصال الجهاز الثاني…</p>
+      <p class="sub">بانتظار الأصدقاء… ينضم حتى 4 أجهزة بنفس الكود</p>
     </div>
 
     <div id="s3" class="sec">
@@ -124,13 +128,14 @@ body.shake{animation:sh .5s}
 const $=id=>document.getElementById(id);
 const DEF="⚡ تم اعتراض الرسالة: مفتاح الأمان نشط";
 const MODES=["طبيعي","نيون","ماتريكس"];
-let peer=null,conn=null,local=null,hasRemote=false,mode=1,secMine=DEF,secPeer=DEF,room="",typeT=null,hideT=null,lastTrig=0;
+const MAX=5,peers=new Map();
+let peer=null,local=null,mode=1,secMine=DEF,room="",typeT=null,hideT=null,isHost=false,focus=null;
 
 /* ---------- Helpers ---------- */
 function err(t){$("err").textContent=t}
 function status(t,on){$("st").textContent=t;$("dot").className=on?"on":""}
 function show(id){["s1","s2","s3"].forEach(s=>$(s).style.display=s===id?"block":"none")}
-function send(o){try{if(conn&&conn.open)conn.send(o)}catch(e){}}
+function send(o){peers.forEach(p=>{try{if(p.conn&&p.conn.open)p.conn.send(o)}catch(e){}})}
 function tag(t){const e=$("tag");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,2600)}
 
 /* ---------- Camera ---------- */
@@ -150,48 +155,96 @@ function enter(){
   $("roomTag").textContent=room;
 }
 
-/* ---------- P2P ---------- */
+/* ---------- P2P mesh (up to 5 devices) ---------- */
+function label(id){return id.indexOf("qmirror-")===0?"الجهاز الأول":"جهاز "+id.slice(0,3).toUpperCase()}
+function entry(id){
+  let p=peers.get(id);if(p)return p;
+  const vid=document.createElement("video");
+  vid.className="hid";vid.autoplay=true;vid.muted=true;vid.playsInline=true;document.body.appendChild(vid);
+  p={id,conn:null,call:null,calling:false,stream:null,vid,secret:DEF,last:0,prev:null,lastCx:null,lastSign:0,rev:[],dark:0,done:false};
+  peers.set(id,p);return p;
+}
+function admit(id){return peers.has(id)||!isHost||peers.size<MAX-1}
+function refresh(){
+  const live=[...peers.values()].filter(p=>p.stream);
+  if(live.length){enter();status("النفق نشط · "+(live.length+1)+" أجهزة",true)}
+  else status(room?"بانتظار الأصدقاء":"غير متصل",false);
+  const s=$("strip");s.textContent="";
+  live.forEach(p=>{
+    const d=document.createElement("div");d.className="th"+(p.id===focus?" f":"");
+    const v=document.createElement("video");v.autoplay=true;v.muted=true;v.playsInline=true;v.srcObject=p.stream;v.play().catch(()=>{});
+    const b=document.createElement("span");b.textContent=label(p.id);
+    d.appendChild(v);d.appendChild(b);
+    d.onclick=()=>{focus=p.id;refresh()};
+    s.appendChild(d);
+  });
+}
+function dropPeer(id){
+  const p=peers.get(id);if(!p)return;
+  peers.delete(id);
+  try{p.conn&&p.conn.close()}catch(e){}
+  try{p.call&&p.call.close()}catch(e){}
+  p.vid.srcObject=null;p.vid.remove();
+  if(focus===id){const n=[...peers.values()].find(x=>x.stream);focus=n?n.id:null}
+  refresh();
+}
 function bindConn(c){
-  conn=c;
-  c.on("open",()=>send({t:"s",v:secMine}));
+  const p=entry(c.peer);p.conn=c;
+  c.on("open",()=>{
+    c.send({t:"s",v:secMine});
+    if(isHost)c.send({t:"peers",ids:[...peers.keys()].filter(i=>i!==c.peer)});
+  });
   c.on("data",d=>{
     if(!d)return;
-    if(d.t==="s")secPeer=String(d.v).slice(0,80);
+    if(d.t==="s")p.secret=String(d.v).slice(0,80);
     else if(d.t==="p")pulse(true);
+    else if(d.t==="full"){[...peers.keys()].forEach(dropPeer);err("الغرفة ممتلئة: الحد الأقصى 5 أجهزة.")}
+    else if(d.t==="peers"&&Array.isArray(d.ids))d.ids.forEach(id=>{if(typeof id==="string"&&id!==peer.id)dial(id)});
   });
-  c.on("close",()=>{status("انقطع النفق",false)});
+  c.on("close",()=>dropPeer(c.peer));
 }
 function bindCall(c){
+  const p=entry(c.peer);p.call=c;
   c.on("stream",s=>{
-    const v=$("rv");v.srcObject=s;v.play().catch(()=>{});
-    hasRemote=true;enter();status("النفق نشط",true);send({t:"s",v:secMine});
+    p.stream=s;p.vid.srcObject=s;p.vid.play().catch(()=>{});
+    const f=peers.get(focus);
+    if(!f||!f.stream)focus=p.id;
+    refresh();send({t:"s",v:secMine});
   });
-  c.on("close",()=>{hasRemote=false;status("انقطع النفق",false)});
-  c.on("error",()=>status("خطأ في الاتصال",false));
+  c.on("close",()=>dropPeer(c.peer));
+  c.on("error",()=>{});
+}
+function dial(id){
+  const p=entry(id);
+  if(!p.conn)bindConn(peer.connect(id,{reliable:true}));
+  if(!p.calling){p.calling=true;bindCall(peer.call(id,local))}
+}
+function wire(p){
+  p.on("call",c=>{if(!admit(c.peer)){c.close();return}c.answer(local);bindCall(c)});
+  p.on("connection",c=>{
+    if(!admit(c.peer)){c.on("open",()=>{c.send({t:"full"});setTimeout(()=>c.close(),300)});return}
+    bindConn(c);
+  });
 }
 function hostRoom(){
+  isHost=true;
   room=String(Math.floor(1000+Math.random()*9000));
-  const p=new Peer("qmirror-"+room);
-  peer=p;
-  p.on("open",()=>{$("code").textContent=room;show("s2");$("roomTag").textContent=room;status("بانتظار الصديق",false)});
-  p.on("call",c=>{c.answer(local);bindCall(c)});
-  p.on("connection",bindConn);
+  const p=new Peer("qmirror-"+room);peer=p;wire(p);
+  p.on("open",()=>{$("code").textContent=room;show("s2");$("roomTag").textContent=room;status("بانتظار الأصدقاء",false)});
   p.on("error",e=>{
     if(e.type==="unavailable-id"){try{p.destroy()}catch(x){}hostRoom()}
     else err("خطأ في الشبكة: "+e.type);
   });
 }
 function joinRoom(code){
-  room=code;err("");
-  const p=new Peer();peer=p;
-  p.on("open",()=>{
-    const id="qmirror-"+code;
-    bindConn(p.connect(id,{reliable:true}));
-    bindCall(p.call(id,local));
-    status("جارٍ الاتصال…",false);
-  });
+  isHost=false;room=code;err("");
+  [...peers.keys()].forEach(dropPeer);
+  if(peer){try{peer.destroy()}catch(e){}}
+  const p=new Peer();peer=p;wire(p);
+  p.on("open",()=>{dial("qmirror-"+code);status("جارٍ الاتصال…",false)});
   p.on("error",e=>{
-    if(e.type==="peer-unavailable")err("الغرفة غير موجودة. تأكد من الكود.");
+    const live=[...peers.values()].some(x=>x.stream);
+    if(e.type==="peer-unavailable"){if(!live)err("الغرفة غير موجودة. تأكد من الكود.")}
     else err("خطأ في الشبكة: "+e.type);
   });
 }
@@ -245,10 +298,10 @@ function decrypt(text,kind){
     }
   },55);
 }
-function trigger(kind){
+function trigger(p,kind){
   const now=performance.now();
-  if(now-lastTrig<7000)return;
-  lastTrig=now;decrypt(secPeer,kind);
+  if(now-p.last<7000)return;
+  p.last=now;decrypt(p.secret,kind+" · "+label(p.id));
 }
 
 /* ---------- WebGL renderer ---------- */
@@ -301,13 +354,13 @@ if(gl){
 function frame(t){
   requestAnimationFrame(frame);
   if(!gl)return;
-  const v=hasRemote?$("rv"):$("lv");
+  const fp=peers.get(focus),rem=!!(fp&&fp.stream&&fp.vid.readyState>=2),v=rem?fp.vid:$("lv");
   if(v.readyState<2||!v.videoWidth)return;
   if(cv.width!==v.videoWidth||cv.height!==v.videoHeight){
     cv.width=v.videoWidth;cv.height=v.videoHeight;gl.viewport(0,0,cv.width,cv.height);
   }
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,v);
-  gl.uniform1f(U.fl,hasRemote?0:1);
+  gl.uniform1f(U.fl,rem?0:1);
   gl.uniform2f(U.px,1/cv.width,1/cv.height);
   gl.uniform1f(U.tm,t/1000);
   gl.uniform1i(U.md,mode);
@@ -315,45 +368,43 @@ function frame(t){
 }
 requestAnimationFrame(frame);
 
-/* ---------- Motion / gesture detection on the received video ---------- */
+/* ---------- Motion / gesture detection on every received feed ---------- */
 const W=32,H=24;
 const mc=document.createElement("canvas");mc.width=W;mc.height=H;
 const mx=mc.getContext("2d",{willReadFrequently:true});
-let prev=null,lastCx=null,lastSign=0,rev=[],dark=0,darkDone=false;
-setInterval(()=>{
-  const v=$("rv");
-  if(!hasRemote||v.readyState<2)return;
+function analyse(p,now){
+  const v=p.vid;
+  if(!p.stream||v.readyState<2)return 0;
   mx.drawImage(v,0,0,W,H);
   const d=mx.getImageData(0,0,W,H).data,cur=new Uint8Array(W*H);
   let sum=0;
-  for(let i=0;i<W*H;i++){const l=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114);cur[i]=l;sum+=l}
+  for(let i=0;i<W*H;i++){const l=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;cur[i]=l;sum+=l}
   const mean=sum/(W*H);
   let cnt=0,sx=0;
-  if(prev){
-    for(let i=0;i<W*H;i++){if(Math.abs(cur[i]-prev[i])>28){cnt++;sx+=i%W}}
-  }
-  prev=cur;
+  if(p.prev){for(let i=0;i<W*H;i++){if(Math.abs(cur[i]-p.prev[i])>28){cnt++;sx+=i%W}}}
+  p.prev=cur;
   const frac=cnt/(W*H);
-  $("mi").style.width=Math.min(100,frac*500)+"%";
-  const now=performance.now();
-  /* Wave: horizontal centroid reversing direction several times */
   if(frac>0.035&&frac<0.6){
     const cx=sx/cnt;
-    if(lastCx!==null){
-      const dx=cx-lastCx;
+    if(p.lastCx!==null){
+      const dx=cx-p.lastCx;
       if(Math.abs(dx)>1.2){
         const s=dx>0?1:-1;
-        if(lastSign!==0&&s!==lastSign)rev.push(now);
-        lastSign=s;
+        if(p.lastSign!==0&&s!==p.lastSign)p.rev.push(now);
+        p.lastSign=s;
       }
     }
-    lastCx=cx;
-  }else{lastCx=null;lastSign=0}
-  rev=rev.filter(x=>now-x<2000);
-  if(rev.length>=3){rev=[];trigger("تلويح اليد")}
-  /* Cover camera: very dark for ~0.6s */
-  if(mean<22){dark++;if(dark>=6&&!darkDone){darkDone=true;trigger("تغطية الكاميرا")}}
-  else{dark=0;darkDone=false}
+    p.lastCx=cx;
+  }else{p.lastCx=null;p.lastSign=0}
+  p.rev=p.rev.filter(x=>now-x<2000);
+  if(p.rev.length>=3){p.rev=[];trigger(p,"تلويح اليد")}
+  if(mean<22){p.dark++;if(p.dark>=6&&!p.done){p.done=true;trigger(p,"تغطية الكاميرا")}}
+  else{p.dark=0;p.done=false}
+  return frac;
+}
+setInterval(()=>{
+  const now=performance.now();
+  peers.forEach(p=>{const f=analyse(p,now);if(p.id===focus)$("mi").style.width=Math.min(100,f*500)+"%"});
 },100);
 
 status("غير متصل",false);
